@@ -121,9 +121,13 @@ if (-not (Test-Path $logsDir)) {
     New-Item -ItemType Directory -Path $logsDir | Out-Null
 }
 $backendLog = Join-Path $logsDir 'backend.log'
+$backendErrLog = Join-Path $logsDir 'backend-error.log'
 $frontendLog = Join-Path $logsDir 'frontend.log'
+$frontendErrLog = Join-Path $logsDir 'frontend-error.log'
 '' | Set-Content $backendLog
+'' | Set-Content $backendErrLog
 '' | Set-Content $frontendLog
+'' | Set-Content $frontendErrLog
 
 $pythonPath = Resolve-Executable -Override $PythonCommand -Candidates @((Join-Path $repoRoot '.venv\Scripts\python.exe'), 'python', 'py')
 if (-not $pythonPath) {
@@ -171,7 +175,7 @@ $backendArgs = @('-m', 'uvicorn', 'backend.app:app', '--host', '0.0.0.0', '--por
 if ($BackendReload) {
     $backendArgs += '--reload'
 }
-$backendProc = Start-Process -FilePath $pythonPath -ArgumentList $backendArgs -WorkingDirectory $repoRoot -RedirectStandardOutput $backendLog -RedirectStandardError $backendLog -PassThru
+$backendProc = Start-Process -FilePath $pythonPath -ArgumentList $backendArgs -WorkingDirectory $repoRoot -RedirectStandardOutput $backendLog -RedirectStandardError $backendErrLog -PassThru
 Start-Sleep -Seconds 2
 if ($backendProc.HasExited) {
     $exitCode = $backendProc.ExitCode
@@ -182,7 +186,7 @@ Write-Info ("Backend PID: {0}" -f $backendProc.Id)
 
 Write-Step ("Starting frontend (Vite) on port {0}" -f $FrontendPort)
 $frontendArgs = @('run', 'dev', '--', '--host', '0.0.0.0', '--port', $FrontendPort, '--strictPort')
-$frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $frontendDir -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendLog -PassThru
+$frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $frontendDir -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrLog -PassThru
 Start-Sleep -Seconds 2
 if ($frontendProc.HasExited) {
     $exitCode = $frontendProc.ExitCode
@@ -224,5 +228,7 @@ finally {
         }
     }
     Write-Info ("Backend log: {0}" -f $backendLog)
+    Write-Info ("Backend error log: {0}" -f $backendErrLog)
     Write-Info ("Frontend log: {0}" -f $frontendLog)
+    Write-Info ("Frontend error log: {0}" -f $frontendErrLog)
 }
