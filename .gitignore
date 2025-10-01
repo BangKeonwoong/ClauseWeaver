@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Logs & temp
+logs/
+*.log
+
+# Build artifacts
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Others
+*.bak
