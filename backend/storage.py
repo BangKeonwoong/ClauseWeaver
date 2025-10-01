@@ -37,8 +37,31 @@ class MotherStorage:
         tf_location = self._resolve_tf_location()
         module_name = self._determine_module(tf_location, self.config.tf_module)
         self._fabric = Fabric(locations=tf_location, modules=[module_name])
-        features = "g_cons g_word_utf8 mother otype book chapter verse typ rela code txt domain instruction function"
-        api = self._fabric.load(features, silent="auto")
+        features = (
+            "g_cons",
+            "mother",
+            "otype",
+            "book",
+            "chapter",
+            "verse",
+            "typ",
+            "rela",
+            "code",
+            "txt",
+            "domain",
+            "instruction",
+            "function",
+        )
+        optional_features = (
+            "g_word_utf8",
+            "g_vocal_utf8",
+            "g_word_utf8a",
+            "g_vocal",
+        )
+        feature_spec = " ".join(list(features) + [f"{name}?" for name in optional_features])
+
+        api = self._fabric.load(feature_spec, silent="auto")
+
         if not api:
             raise RuntimeError("Failed to load Text-Fabric data. Check tf_location and module settings.")
 
@@ -171,8 +194,12 @@ class MotherStorage:
         L = self._tf_api.L
         words = []
         for word_node in L.d(node, "word")[:limit]:
-            hebrew = F.g_word_utf8.v(word_node)
-            lex = hebrew or F.g_cons.v(word_node) or ""
+            hebrew = getattr(F, "g_word_utf8", None)
+            vocal_utf8 = getattr(F, "g_vocal_utf8", None)
+            hebrew_val = hebrew.v(word_node) if hebrew else None
+            vocal_val = vocal_utf8.v(word_node) if vocal_utf8 else None
+            cons_val = F.g_cons.v(word_node) if hasattr(F, "g_cons") else None
+            lex = hebrew_val or vocal_val or cons_val or ""
             words.append(lex)
         label = " ".join(words)
         total_words = len(L.d(node, "word"))
