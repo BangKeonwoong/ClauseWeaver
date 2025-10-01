@@ -41,7 +41,7 @@ function Resolve-Executable {
 
     if ($Override) {
         if (-not (Test-Path $Override)) {
-            throw "Specified path not found: $Override"
+            throw ("Specified path not found: {0}" -f $Override)
         }
         return (Resolve-Path $Override).Path
     }
@@ -93,17 +93,17 @@ function Ensure-PortFree {
             try {
                 $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
                 if ($proc) {
-                    return "PID $pid ($($proc.ProcessName))"
+                    return ("PID {0} ({1})" -f $pid, $proc.ProcessName)
                 }
             } catch {
-                return "PID $pid"
+                return ("PID {0}" -f $pid)
             }
-            return "PID $pid"
+            return ("PID {0}" -f $pid)
         }
         return 'Unknown process'
     } | Sort-Object -Unique
 
-    throw "The $Role port $Port is already in use by: $([string]::Join(', ', $details))"
+    throw ("The {0} port {1} is already in use by: {2}" -f $Role, $Port, ([string]::Join(', ', $details)))
 }
 
 $repoRoot = if ($ProjectRoot) {
@@ -112,7 +112,7 @@ $repoRoot = if ($ProjectRoot) {
     (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 }
 
-Write-Info "Project root: $repoRoot"
+Write-Info ("Project root: {0}" -f $repoRoot)
 $logsDir = Join-Path $repoRoot 'logs'
 if (-not (Test-Path $logsDir)) {
     New-Item -ItemType Directory -Path $logsDir | Out-Null
@@ -134,14 +134,14 @@ if (-not $npmPath) {
 
 $frontendDir = Join-Path $repoRoot 'frontend'
 if (-not (Test-Path $frontendDir)) {
-    throw "Frontend directory not found: $frontendDir"
+    throw ("Frontend directory not found: {0}" -f $frontendDir)
 }
 
 $tfLocation = if ($TextFabricDataDir) {
     if (Test-Path $TextFabricDataDir) {
         (Resolve-Path $TextFabricDataDir).Path
     } else {
-        Write-Warn "Specified Text-Fabric directory does not exist. It will be used as provided: $TextFabricDataDir"
+        Write-Warn ("Specified Text-Fabric directory does not exist. Using as provided: {0}" -f $TextFabricDataDir)
         $TextFabricDataDir
     }
 } elseif ($env:TF_DATA_LOCATION) {
@@ -151,12 +151,12 @@ $tfLocation = if ($TextFabricDataDir) {
 }
 
 $env:TF_DATA_LOCATION = $tfLocation
-Write-Info "TF_DATA_LOCATION: $tfLocation"
+Write-Info ("TF_DATA_LOCATION: {0}" -f $tfLocation)
 
 Ensure-PortFree -Port $BackendPort -Role 'backend'
 Ensure-PortFree -Port $FrontendPort -Role 'frontend'
 
-Write-Step "Starting backend (uvicorn) on port $BackendPort"
+Write-Step ("Starting backend (uvicorn) on port {0}" -f $BackendPort)
 $backendArgs = @('-m', 'uvicorn', 'backend.app:app', '--host', '0.0.0.0', '--port', $BackendPort, '--log-level', 'info', '--app-dir', $repoRoot)
 if ($BackendReload) {
     $backendArgs += '--reload'
@@ -166,27 +166,27 @@ Start-Sleep -Seconds 2
 if ($backendProc.HasExited) {
     $exitCode = $backendProc.ExitCode
     $backendOutput = Get-Content $backendLog -Tail 50
-    throw "Backend process exited immediately (code $exitCode). Recent log:\n$backendOutput"
+    throw ("Backend process exited immediately (code {0}). Recent log:\n{1}" -f $exitCode, ($backendOutput -join [Environment]::NewLine))
 }
-Write-Info "Backend PID: $($backendProc.Id)"
+Write-Info ("Backend PID: {0}" -f $backendProc.Id)
 
-Write-Step "Starting frontend (Vite) on port $FrontendPort"
+Write-Step ("Starting frontend (Vite) on port {0}" -f $FrontendPort)
 $frontendArgs = @('--prefix', $frontendDir, 'run', 'dev', '--', '--host', '0.0.0.0', '--port', $FrontendPort, '--strictPort')
 $frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $repoRoot -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendLog -PassThru
 Start-Sleep -Seconds 2
 if ($frontendProc.HasExited) {
     $exitCode = $frontendProc.ExitCode
     $frontendOutput = Get-Content $frontendLog -Tail 50
-    throw "Frontend process exited immediately (code $exitCode). Recent log:\n$frontendOutput"
+    throw ("Frontend process exited immediately (code {0}). Recent log:\n{1}" -f $exitCode, ($frontendOutput -join [Environment]::NewLine))
 }
-Write-Info "Frontend PID: $($frontendProc.Id)"
+Write-Info ("Frontend PID: {0}" -f $frontendProc.Id)
 
 if ($OpenBrowser) {
-    Write-Info "Opening browser: http://localhost:$FrontendPort"
-    Start-Process "http://localhost:$FrontendPort"
+    Write-Info ("Opening browser at http://localhost:{0}" -f $FrontendPort)
+    Start-Process ("http://localhost:{0}" -f $FrontendPort)
 }
 
-Write-Info "Tail logs with: Get-Content -Wait '$backendLog' or '$frontendLog'"
+Write-Info ("Tail logs with: Get-Content -Wait '{0}' or '{1}'" -f $backendLog, $frontendLog)
 Write-Info 'Close this window or press Ctrl+C to stop both services.'
 
 try {
@@ -205,14 +205,14 @@ try {
 finally {
     foreach ($proc in @($frontendProc, $backendProc)) {
         if ($proc -and -not $proc.HasExited) {
-            Write-Info "Stopping process PID $($proc.Id)"
+            Write-Info ("Stopping process PID {0}" -f $proc.Id)
             try {
                 Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             } catch {
-                Write-Warn "Failed to stop process PID $($proc.Id)"
+                Write-Warn ("Failed to stop process PID {0}" -f $proc.Id)
             }
         }
     }
-    Write-Info "Backend log: $backendLog"
-    Write-Info "Frontend log: $frontendLog"
+    Write-Info ("Backend log: {0}" -f $backendLog)
+    Write-Info ("Frontend log: {0}" -f $frontendLog)
 }

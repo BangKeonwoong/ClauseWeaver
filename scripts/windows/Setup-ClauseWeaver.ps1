@@ -2,7 +2,7 @@
 .SYNOPSIS
 Automates ClauseWeaver environment setup on Windows.
 .DESCRIPTION
-Creates a Python virtual environment, installs project requirements, and downloads Text-Fabric data.
+Creates the Python virtual environment, installs dependencies, and downloads Text-Fabric data.
 #>
 [CmdletBinding()]
 param(
@@ -40,7 +40,7 @@ function Resolve-Executable {
     )
     if ($Override) {
         if (-not (Test-Path $Override)) {
-            throw "Specified path not found: $Override"
+            throw ("Specified path not found: {0}" -f $Override)
         }
         return (Resolve-Path $Override).Path
     }
@@ -60,7 +60,7 @@ function Get-VersionFromOutput {
     if ($Text -match '(\d+\.\d+\.\d+)') {
         return [Version]$Matches[1]
     }
-    throw "Unable to parse version from: $Text"
+    throw ("Unable to parse version from: {0}" -f $Text)
 }
 
 $repoRoot = if ($ProjectRoot) {
@@ -69,13 +69,13 @@ $repoRoot = if ($ProjectRoot) {
     (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 }
 
-Write-Info "Project root: $repoRoot"
+Write-Info ("Project root: {0}" -f $repoRoot)
 $logsDir = Join-Path $repoRoot 'logs'
 if (-not (Test-Path $logsDir)) {
     New-Item -ItemType Directory -Path $logsDir | Out-Null
 }
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$logFile = Join-Path $logsDir "setup-$timestamp.log"
+$logFile = Join-Path $logsDir ("setup-{0}.log" -f $timestamp)
 Start-Transcript -Path $logFile -Force | Out-Null
 
 try {
@@ -85,7 +85,7 @@ try {
         throw 'Python executable not found. Install Python 3.12+ via Microsoft Store, winget, or the official installer.'
     }
     $pythonVersion = Get-VersionFromOutput -Text (& $pythonPath --version 2>&1)
-    Write-Info "Python path: $pythonPath (version $pythonVersion)"
+    Write-Info ("Python path: {0} (version {1})" -f $pythonPath, $pythonVersion)
     if ($pythonVersion -lt [Version]'3.12.0') {
         throw 'Python 3.12 or newer is required. Install the latest version and re-run the script.'
     }
@@ -96,7 +96,7 @@ try {
         throw 'node executable not found. Install Node.js 20 LTS or newer.'
     }
     $nodeVersion = Get-VersionFromOutput -Text (& $nodePath --version 2>&1)
-    Write-Info "Node.js path: $nodePath (version $nodeVersion)"
+    Write-Info ("Node.js path: {0} (version {1})" -f $nodePath, $nodeVersion)
     if ($nodeVersion -lt [Version]'20.0.0') {
         throw 'Node.js 20 or newer is required. Update to the latest LTS release.'
     }
@@ -105,7 +105,7 @@ try {
     if (-not $npmPath) {
         throw 'npm command not found. Verify the Node.js installation.'
     }
-    Write-Info "npm path: $npmPath"
+    Write-Info ("npm path: {0}" -f $npmPath)
 
     Write-Step 'Prepare Python virtual environment'
     $venvDir = Join-Path $repoRoot '.venv'
@@ -118,7 +118,7 @@ try {
     }
 
     if ($UpgradePip) {
-        Write-Info 'Upgrading pip...'
+        Write-Info 'Upgrading pip.'
         & $venvPython -m pip install --upgrade pip
     }
 
@@ -140,19 +140,19 @@ try {
     }
     $tfDirPath = $tfDir
     if (-not (Test-Path $tfDirPath)) {
-        Write-Info "Creating Text-Fabric data directory: $tfDirPath"
+        Write-Info ("Creating Text-Fabric data directory: {0}" -f $tfDirPath)
         New-Item -ItemType Directory -Path $tfDirPath -Force | Out-Null
     }
     $targetDatasetDir = Join-Path $tfDirPath 'etcbc/bhsa/tf/2021'
     if ((Test-Path $targetDatasetDir) -and $SkipTextFabricDownload) {
         Write-Info 'Data already present; skipping download as requested.'
     } elseif (Test-Path $targetDatasetDir) {
-        Write-Info "Detected existing dataset: $targetDatasetDir"
+        Write-Info ("Detected existing dataset: {0}" -f $targetDatasetDir)
     } else {
         Write-Info 'Downloading Text-Fabric dataset (etcbc/bhsa/tf/2021).'
         $tfExe = Join-Path $venvDir 'Scripts\tf.exe'
         if (-not (Test-Path $tfExe)) {
-            throw "tf CLI not found: $tfExe"
+            throw ("tf CLI not found: {0}" -f $tfExe)
         }
         $env:TF_DATA_DIR = $tfDirPath
         & $tfExe get etcbc/bhsa/tf/2021
@@ -169,15 +169,15 @@ try {
     & $npmPath --prefix $frontendDir install
 
     Write-Info 'Setup complete.'
-    Write-Info "Activate the virtual environment with: `& .venv\\Scripts\\Activate.ps1`"
-    Write-Info "Text-Fabric data directory: $tfDirPath"
+    Write-Info 'Activate the virtual environment with: & .venv\Scripts\Activate.ps1'
+    Write-Info ("Text-Fabric data directory: {0}" -f $tfDirPath)
     Write-Info 'Use the launch script to start backend and frontend servers.'
 }
 catch {
-    Write-Warn $_
+    Write-Warn ("Setup failed: {0}" -f $_)
     throw
 }
 finally {
     Stop-Transcript | Out-Null
-    Write-Info "Setup log saved to: $logFile"
+    Write-Info ("Setup log saved to: {0}" -f $logFile)
 }
