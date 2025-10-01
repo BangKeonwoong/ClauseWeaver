@@ -69,21 +69,24 @@ function Ensure-PortFree {
         $listeners = @()
     }
 
-    if (-not $listeners -or $listeners.Count -eq 0) {
+    $listenerCount = @($listeners).Count
+
+    if ($listenerCount -eq 0) {
         $pattern = ":{0} ".Replace('{0}', $Port.ToString())
         $netstat = & netstat -ano | Select-String -Pattern $pattern -SimpleMatch
         if ($netstat) {
-            $listeners = $netstat | ForEach-Object {
+            $listeners = @($netstat | ForEach-Object {
                 $line = $_.ToString()
                 $parts = $line -split '\s+' | Where-Object { $_ }
                 if ($parts.Length -ge 5) {
                     [pscustomobject]@{ OwningProcess = $parts[-1] }
                 }
-            } | Where-Object { $_ }
+            } | Where-Object { $_ })
         }
+        $listenerCount = @($listeners).Count
     }
 
-    if (-not $listeners -or $listeners.Count -eq 0) {
+    if ($listenerCount -eq 0) {
         return
     }
 
