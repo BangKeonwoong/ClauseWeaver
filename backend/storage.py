@@ -27,6 +27,7 @@ class MotherStorage:
         self._all_nodes: List[ClauseNode] = []
         self._tf_api = None
         self._fabric = None
+        self._available_features: Set[str] = set()
         self._load_text_fabric_data()
 
     @staticmethod
@@ -58,14 +59,28 @@ class MotherStorage:
             "g_word_utf8a",
             "g_vocal",
         )
-        feature_spec = " ".join(list(features) + [f"{name}?" for name in optional_features])
 
-        api = self._fabric.load(feature_spec, silent="auto")
+        feature_specs = [
+            " ".join(list(features) + [f"{name}?" for name in optional_features]),
+            " ".join(features),
+        ]
+
+        api = None
+        for spec in feature_specs:
+            try:
+                candidate = self._fabric.load(spec, silent="auto")
+            except KeyError:
+                candidate = None
+            if candidate:
+                api = candidate
+                break
 
         if not api:
             raise RuntimeError("Failed to load Text-Fabric data. Check tf_location and module settings.")
 
         self._tf_api = api
+        self._available_features = {name for name in features}
+        self._available_features.update(name for name in optional_features if hasattr(api.F, name))
         F = api.F
         E = api.E
         L = api.L
@@ -193,15 +208,22 @@ class MotherStorage:
         F = self._tf_api.F
         L = self._tf_api.L
         words = []
+        lexical_priority = ("g_word_utf8", "g_vocal_utf8", "g_word_utf8a", "g_vocal")
         for word_node in L.d(node, "word")[:limit]:
-            hebrew = getattr(F, "g_word_utf8", None)
-            vocal_utf8 = getattr(F, "g_vocal_utf8", None)
-            hebrew_val = hebrew.v(word_node) if hebrew else None
-            vocal_val = vocal_utf8.v(word_node) if vocal_utf8 else None
-            cons_val = F.g_cons.v(word_node) if hasattr(F, "g_cons") else None
-            lex = hebrew_val or vocal_val or cons_val or ""
+            lex = ""
+            for feature_name in lexical_priority:
+                if feature_name in self._available_features:
+                    feature = getattr(F, feature_name, None)
+                    if feature is None:
+                        continue
+                    value = feature.v(word_node)
+                    if value:
+                        lex = value
+                        break
+            if not lex and "g_cons" in self._available_features:
+                lex = F.g_cons.v(word_node)
             words.append(lex)
-        label = " ".join(words)
+        label = " ".join(word for word in words if word)
         total_words = len(L.d(node, "word"))
         if total_words > limit:
             label = f"{label} …"
