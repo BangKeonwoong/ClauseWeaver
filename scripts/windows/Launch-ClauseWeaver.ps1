@@ -127,9 +127,16 @@ if (-not $pythonPath) {
     throw 'Python executable not found. Run Setup-ClauseWeaver.ps1 first.'
 }
 
-$npmPath = Resolve-Executable -Candidates @('npm')
+$npmPath = Resolve-Executable -Candidates @('npm.cmd', 'npm')
 if (-not $npmPath) {
     throw 'npm command not found. Verify the Node.js installation.'
+}
+if ($npmPath -like '*.ps1') {
+    $cmdCandidate = [System.IO.Path]::ChangeExtension($npmPath, '.cmd')
+    if ($cmdCandidate -and (Test-Path $cmdCandidate)) {
+        $npmPath = $cmdCandidate
+        Write-Info ("Using npm shim: {0}" -f $npmPath)
+    }
 }
 
 $frontendDir = Join-Path $repoRoot 'frontend'

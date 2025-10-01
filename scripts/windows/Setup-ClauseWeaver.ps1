@@ -101,11 +101,18 @@ try {
         throw 'Node.js 20 or newer is required. Update to the latest LTS release.'
     }
 
-    $npmPath = Resolve-Executable -Candidates @('npm')
+    $npmPath = Resolve-Executable -Candidates @('npm.cmd', 'npm')
     if (-not $npmPath) {
         throw 'npm command not found. Verify the Node.js installation.'
     }
     Write-Info ("npm path: {0}" -f $npmPath)
+    if ($npmPath -like '*.ps1') {
+        $cmdCandidate = [System.IO.Path]::ChangeExtension($npmPath, '.cmd')
+        if ($cmdCandidate -and (Test-Path $cmdCandidate)) {
+            $npmPath = $cmdCandidate
+            Write-Info ("Using npm shim: {0}" -f $npmPath)
+        }
+    }
 
     Write-Step 'Prepare Python virtual environment'
     $venvDir = Join-Path $repoRoot '.venv'
