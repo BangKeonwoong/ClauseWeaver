@@ -10,6 +10,17 @@ BHSA(Biblia Hebraica Stuttgartensia) 절(clause)의 어미 관계를 재구성�
 
 ## 설치
 
+먼저 Text-Fabric 데이터를 받아둡니다.
+
+```bash
+pip install text-fabric  # tf CLI 설치
+mkdir -p ~/text-fabric-data
+cd ~/text-fabric-data
+tf get etcbc/bhsa/tf/2021
+```
+
+다른 경로에 다운로드했다면 `TF_DATA_LOCATION` 환경 변수를 해당 경로로 설정하거나 `backend` 코드에서 `ConfigOptions.tf_location`을 조정하세요.
+
 ```bash
 git clone git@github.com:BangKeonwoong/ClauseWeaver.git
 cd ClauseWeaver
@@ -60,4 +71,3 @@ ClauseWeaver
 ## 라이선스
 
 MIT License (필요 시 조정)
-
