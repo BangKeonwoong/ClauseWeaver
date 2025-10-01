@@ -157,10 +157,16 @@ class MotherStorage:
         candidates = [module]
         if "/" in module:
             parts = module.split("/")
+            # include suffixes (drop leading segments)
             for idx in range(1, len(parts)):
                 tail = "/".join(parts[idx:])
-                if tail not in candidates:
+                if tail and tail not in candidates:
                     candidates.append(tail)
+            # include prefixes (drop trailing segments)
+            for idx in range(len(parts) - 1, 0, -1):
+                prefix = "/".join(parts[:idx])
+                if prefix and prefix not in candidates:
+                    candidates.append(prefix)
 
         for cand in candidates:
             candidate_path = os.path.join(location, cand)
