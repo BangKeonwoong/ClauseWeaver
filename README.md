@@ -43,6 +43,21 @@ source .venv/bin/activate
 
 기본 포트는 백엔드 8000, 프런트엔드 5173입니다. 실행 시 `logs/` 디렉토리에 각각의 로그가 생성되며, 종료 시 자동 정리됩니다.
 
+## Windows 원클릭 실행
+
+### 초기 설정
+- 관리자 권한이 필요하지 않은 일반 PowerShell 창에서 프로젝트 루트로 이동한 뒤 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Setup-ClauseWeaver.ps1`를 실행합니다.
+- `-UpgradePip`(pip 최신화), `-ForceFrontendInstall`(기존 node_modules 재설치), `-SkipTextFabricDownload` 등의 스위치로 세부 동작을 조정할 수 있습니다.
+- Text-Fabric 데이터는 기본적으로 `%USERPROFILE%\text-fabric-data`에 설치되며, 다른 경로를 사용하려면 `-TextFabricDataDir`로 지정합니다.
+
+### 실행
+- `scripts\windows\start_clauseweaver.cmd`를 더블 클릭하거나 터미널에서 `.\scripts\windows\start_clauseweaver.cmd -OpenBrowser`를 호출하면 백엔드/프런트 서버가 동시에 시작됩니다.
+- 추가 인자가 필요하면 직접 PowerShell 스크립트를 호출합니다: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Launch-ClauseWeaver.ps1 -BackendReload -BackendPort 8001`.
+
+### 로그와 종료
+- 설치 로그는 `logs/setup-YYYYMMDD-HHmmss.log`, 실행 로그는 `logs/backend.log`, `logs/frontend.log`에 저장됩니다.
+- 창을 닫거나 Ctrl+C를 누르면 두 프로세스가 모두 종료되며, 포트 충돌 시 어떤 프로세스가 사용 중인지 메시지로 안내합니다.
+
 ## 테스트
 
 ```bash
