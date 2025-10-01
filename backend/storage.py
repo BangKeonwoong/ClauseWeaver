@@ -60,27 +60,26 @@ class MotherStorage:
             "g_vocal",
         )
 
-        feature_specs = [
-            " ".join(list(features) + [f"{name}?" for name in optional_features]),
-            " ".join(features),
-        ]
-
-        api = None
-        for spec in feature_specs:
-            try:
-                candidate = self._fabric.load(spec, silent="auto")
-            except KeyError:
-                candidate = None
-            if candidate:
-                api = candidate
-                break
+        base_spec = " ".join(features)
+        api = self._fabric.load(base_spec, silent="auto")
 
         if not api:
             raise RuntimeError("Failed to load Text-Fabric data. Check tf_location and module settings.")
 
         self._tf_api = api
-        self._available_features = {name for name in features}
-        self._available_features.update(name for name in optional_features if hasattr(api.F, name))
+        self._available_features = set(features)
+
+        for feature_name in optional_features:
+            try:
+                candidate = self._fabric.load(feature_name, silent="auto")
+            except KeyError:
+                continue
+            except Exception:
+                continue
+            if candidate and hasattr(candidate.F, feature_name):
+                self._tf_api = candidate
+                self._available_features.add(feature_name)
+        api = self._tf_api
         F = api.F
         E = api.E
         L = api.L
