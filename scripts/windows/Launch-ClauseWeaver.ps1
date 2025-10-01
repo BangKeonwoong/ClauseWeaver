@@ -91,17 +91,17 @@ function Ensure-PortFree {
     }
 
     $details = $listeners | ForEach-Object {
-        $pid = $_.OwningProcess
-        if ($pid -and ($pid -match '^\d+$')) {
+        $processId = $_.OwningProcess
+        if ($processId -and ($processId -match '^\d+$')) {
             try {
-                $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
                 if ($proc) {
-                    return ("PID {0} ({1})" -f $pid, $proc.ProcessName)
+                    return ("PID {0} ({1})" -f $processId, $proc.ProcessName)
                 }
             } catch {
-                return ("PID {0}" -f $pid)
+                return ("PID {0}" -f $processId)
             }
-            return ("PID {0}" -f $pid)
+            return ("PID {0}" -f $processId)
         }
         return 'Unknown process'
     } | Sort-Object -Unique
