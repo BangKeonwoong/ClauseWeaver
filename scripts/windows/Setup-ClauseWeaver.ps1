@@ -66,7 +66,7 @@ function Get-VersionFromOutput {
 $repoRoot = if ($ProjectRoot) {
     (Resolve-Path $ProjectRoot).Path
 } else {
-    (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    (Get-Item -Path $PSScriptRoot).Parent.Parent.FullName
 }
 
 Write-Info ("Project root: {0}" -f $repoRoot)
