@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-ClauseWeaver 개발 환경을 Windows에서 자동으로 구성합니다.
+Automates ClauseWeaver environment setup on Windows.
 .DESCRIPTION
-Python, Node.js, Text-Fabric 데이터 및 프로젝트 의존성을 설치하고 구성합니다.
+Creates a Python virtual environment, installs project requirements, and downloads Text-Fabric data.
 #>
 [CmdletBinding()]
 param(
@@ -20,17 +20,17 @@ $ErrorActionPreference = 'Stop'
 
 function Write-Step {
     param([string]$Message)
-    Write-Host "[단계] $Message" -ForegroundColor Cyan
+    Write-Host "[STEP] $Message" -ForegroundColor Cyan
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "[정보] $Message"
+    Write-Host "[INFO] $Message"
 }
 
 function Write-Warn {
     param([string]$Message)
-    Write-Warning "[경고] $Message"
+    Write-Warning "[WARN] $Message"
 }
 
 function Resolve-Executable {
@@ -40,7 +40,7 @@ function Resolve-Executable {
     )
     if ($Override) {
         if (-not (Test-Path $Override)) {
-            throw "명시된 경로를 찾을 수 없습니다: $Override"
+            throw "Specified path not found: $Override"
         }
         return (Resolve-Path $Override).Path
     }
@@ -60,7 +60,7 @@ function Get-VersionFromOutput {
     if ($Text -match '(\d+\.\d+\.\d+)') {
         return [Version]$Matches[1]
     }
-    throw "버전을 파싱할 수 없습니다: $Text"
+    throw "Unable to parse version from: $Text"
 }
 
 $repoRoot = if ($ProjectRoot) {
@@ -69,7 +69,7 @@ $repoRoot = if ($ProjectRoot) {
     (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 }
 
-Write-Info "프로젝트 루트: $repoRoot"
+Write-Info "Project root: $repoRoot"
 $logsDir = Join-Path $repoRoot 'logs'
 if (-not (Test-Path $logsDir)) {
     New-Item -ItemType Directory -Path $logsDir | Out-Null
@@ -79,57 +79,57 @@ $logFile = Join-Path $logsDir "setup-$timestamp.log"
 Start-Transcript -Path $logFile -Force | Out-Null
 
 try {
-    Write-Step 'Python 실행 파일 확인'
+    Write-Step 'Detect Python executable'
     $pythonPath = Resolve-Executable -Override $PythonCommand -Candidates @('python', 'py')
     if (-not $pythonPath) {
-        throw 'Python 실행 파일을 찾을 수 없습니다. Microsoft Store, winget, 또는 설치 프로그램을 통해 Python 3.12 이상을 설치하세요.'
+        throw 'Python executable not found. Install Python 3.12+ via Microsoft Store, winget, or the official installer.'
     }
     $pythonVersion = Get-VersionFromOutput -Text (& $pythonPath --version 2>&1)
-    Write-Info "Python 경로: $pythonPath (버전: $pythonVersion)"
+    Write-Info "Python path: $pythonPath (version $pythonVersion)"
     if ($pythonVersion -lt [Version]'3.12.0') {
-        throw 'Python 3.12 이상이 필요합니다. 최신 버전을 설치한 뒤 다시 실행하세요.'
+        throw 'Python 3.12 or newer is required. Install the latest version and re-run the script.'
     }
 
-    Write-Step 'Node.js (npm) 확인'
+    Write-Step 'Detect Node.js (npm)'
     $nodePath = Resolve-Executable -Override $NodeCommand -Candidates @('node')
     if (-not $nodePath) {
-        throw 'node 실행 파일을 찾을 수 없습니다. Node.js 20 LTS 이상을 설치하세요.'
+        throw 'node executable not found. Install Node.js 20 LTS or newer.'
     }
     $nodeVersion = Get-VersionFromOutput -Text (& $nodePath --version 2>&1)
-    Write-Info "Node.js 경로: $nodePath (버전: $nodeVersion)"
+    Write-Info "Node.js path: $nodePath (version $nodeVersion)"
     if ($nodeVersion -lt [Version]'20.0.0') {
-        throw 'Node.js 20 이상이 필요합니다. 최신 LTS 버전으로 업데이트하세요.'
+        throw 'Node.js 20 or newer is required. Update to the latest LTS release.'
     }
 
     $npmPath = Resolve-Executable -Candidates @('npm')
     if (-not $npmPath) {
-        throw 'npm 명령을 찾을 수 없습니다. Node.js 설치가 올바르게 완료되었는지 확인하세요.'
+        throw 'npm command not found. Verify the Node.js installation.'
     }
-    Write-Info "npm 경로: $npmPath"
+    Write-Info "npm path: $npmPath"
 
-    Write-Step '가상환경 준비'
+    Write-Step 'Prepare Python virtual environment'
     $venvDir = Join-Path $repoRoot '.venv'
     $venvPython = Join-Path $venvDir 'Scripts\python.exe'
     if (-not (Test-Path $venvPython)) {
-        Write-Info '가상환경을 생성합니다 (.venv).'
+        Write-Info 'Creating virtual environment (.venv).'
         & $pythonPath -m venv $venvDir
     } else {
-        Write-Info '기존 가상환경을 재사용합니다.'
+        Write-Info 'Using existing virtual environment (.venv).'
     }
 
     if ($UpgradePip) {
-        Write-Info 'pip 업그레이드 중...'
+        Write-Info 'Upgrading pip...'
         & $venvPython -m pip install --upgrade pip
     }
 
-    Write-Step 'Python 의존성 설치'
-    Write-Info 'backend 패키지를 편집 가능 모드로 설치합니다.'
+    Write-Step 'Install Python dependencies'
+    Write-Info 'Installing backend package in editable mode.'
     & $venvPython -m pip install --upgrade wheel setuptools
     & $venvPython -m pip install -e (Join-Path $repoRoot 'backend')
-    Write-Info 'text-fabric 패키지를 설치합니다.'
+    Write-Info 'Installing text-fabric package.'
     & $venvPython -m pip install text-fabric
 
-    Write-Step 'Text-Fabric 데이터 확인'
+    Write-Step 'Ensure Text-Fabric data availability'
     $tfDir = if ($TextFabricDataDir) {
         (Resolve-Path -Path $TextFabricDataDir -ErrorAction SilentlyContinue)
     } else {
@@ -140,38 +140,38 @@ try {
     }
     $tfDirPath = $tfDir
     if (-not (Test-Path $tfDirPath)) {
-        Write-Info "Text-Fabric 데이터 디렉토리를 생성합니다: $tfDirPath"
+        Write-Info "Creating Text-Fabric data directory: $tfDirPath"
         New-Item -ItemType Directory -Path $tfDirPath -Force | Out-Null
     }
     $targetDatasetDir = Join-Path $tfDirPath 'etcbc/bhsa/tf/2021'
     if ((Test-Path $targetDatasetDir) -and $SkipTextFabricDownload) {
-        Write-Info '데이터가 이미 존재하며 다운로드를 건너뜁니다.'
+        Write-Info 'Data already present; skipping download as requested.'
     } elseif (Test-Path $targetDatasetDir) {
-        Write-Info "이미 다운로드된 데이터가 감지되었습니다: $targetDatasetDir"
+        Write-Info "Detected existing dataset: $targetDatasetDir"
     } else {
-        Write-Info 'Text-Fabric 데이터를 다운로드합니다 (etcbc/bhsa/tf/2021).'
+        Write-Info 'Downloading Text-Fabric dataset (etcbc/bhsa/tf/2021).'
         $tfExe = Join-Path $venvDir 'Scripts\tf.exe'
         if (-not (Test-Path $tfExe)) {
-            throw "tf CLI를 찾을 수 없습니다: $tfExe"
+            throw "tf CLI not found: $tfExe"
         }
         $env:TF_DATA_DIR = $tfDirPath
         & $tfExe get etcbc/bhsa/tf/2021
     }
 
-    Write-Step 'Node.js 의존성 설치'
+    Write-Step 'Install Node.js dependencies'
     $frontendDir = Join-Path $repoRoot 'frontend'
     $nodeModulesDir = Join-Path $frontendDir 'node_modules'
     if ($ForceFrontendInstall -and (Test-Path $nodeModulesDir)) {
-        Write-Info '기존 node_modules 디렉토리를 정리합니다 (-ForceFrontendInstall).'
+        Write-Info 'Removing existing node_modules (ForceFrontendInstall).'
         Remove-Item -Recurse -Force $nodeModulesDir
     }
-    Write-Info 'npm install을 실행합니다.'
+    Write-Info 'Running npm install.'
     & $npmPath --prefix $frontendDir install
 
-    Write-Info '설치가 완료되었습니다.'
-    Write-Info "가상환경 활성화: `& .venv\\Scripts\\Activate.ps1`"
-    Write-Info "Text-Fabric 데이터 위치: $tfDirPath"
-    Write-Info '프런트엔드 개발 서버는 별도 실행 스크립트를 사용하세요.'
+    Write-Info 'Setup complete.'
+    Write-Info "Activate the virtual environment with: `& .venv\\Scripts\\Activate.ps1`"
+    Write-Info "Text-Fabric data directory: $tfDirPath"
+    Write-Info 'Use the launch script to start backend and frontend servers.'
 }
 catch {
     Write-Warn $_
@@ -179,5 +179,5 @@ catch {
 }
 finally {
     Stop-Transcript | Out-Null
-    Write-Info "설치 로그 파일: $logFile"
+    Write-Info "Setup log saved to: $logFile"
 }

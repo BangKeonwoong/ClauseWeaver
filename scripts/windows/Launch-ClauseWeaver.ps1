@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-ClauseWeaver 백엔드와 프런트엔드를 Windows에서 원클릭으로 실행합니다.
+Launches ClauseWeaver backend and frontend on Windows.
 .DESCRIPTION
-가상환경을 사용해 uvicorn과 Vite 개발 서버를 시작하고 로그 파일을 관리하며, 종료 시 프로세스를 정리합니다.
+Uses the project virtual environment to start uvicorn and Vite, handles logging, and cleans up processes on exit.
 #>
 [CmdletBinding()]
 param(
@@ -20,17 +20,17 @@ $ErrorActionPreference = 'Stop'
 
 function Write-Step {
     param([string]$Message)
-    Write-Host "[단계] $Message" -ForegroundColor Cyan
+    Write-Host "[STEP] $Message" -ForegroundColor Cyan
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "[정보] $Message"
+    Write-Host "[INFO] $Message"
 }
 
 function Write-Warn {
     param([string]$Message)
-    Write-Warning "[경고] $Message"
+    Write-Warning "[WARN] $Message"
 }
 
 function Resolve-Executable {
@@ -41,7 +41,7 @@ function Resolve-Executable {
 
     if ($Override) {
         if (-not (Test-Path $Override)) {
-            throw "명시된 경로를 찾을 수 없습니다: $Override"
+            throw "Specified path not found: $Override"
         }
         return (Resolve-Path $Override).Path
     }
@@ -100,10 +100,10 @@ function Ensure-PortFree {
             }
             return "PID $pid"
         }
-        return '알 수 없는 프로세스'
+        return 'Unknown process'
     } | Sort-Object -Unique
 
-    throw "${Role} 포트 ${Port}가 이미 사용 중입니다: $([string]::Join(', ', $details))"
+    throw "The $Role port $Port is already in use by: $([string]::Join(', ', $details))"
 }
 
 $repoRoot = if ($ProjectRoot) {
@@ -112,7 +112,7 @@ $repoRoot = if ($ProjectRoot) {
     (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 }
 
-Write-Info "프로젝트 루트: $repoRoot"
+Write-Info "Project root: $repoRoot"
 $logsDir = Join-Path $repoRoot 'logs'
 if (-not (Test-Path $logsDir)) {
     New-Item -ItemType Directory -Path $logsDir | Out-Null
@@ -124,24 +124,24 @@ $frontendLog = Join-Path $logsDir 'frontend.log'
 
 $pythonPath = Resolve-Executable -Override $PythonCommand -Candidates @((Join-Path $repoRoot '.venv\Scripts\python.exe'), 'python', 'py')
 if (-not $pythonPath) {
-    throw 'Python 실행 파일을 찾을 수 없습니다. 먼저 Setup-ClauseWeaver.ps1 스크립트를 실행하세요.'
+    throw 'Python executable not found. Run Setup-ClauseWeaver.ps1 first.'
 }
 
 $npmPath = Resolve-Executable -Candidates @('npm')
 if (-not $npmPath) {
-    throw 'npm 명령을 찾을 수 없습니다. Node.js 설치 상태를 확인하세요.'
+    throw 'npm command not found. Verify the Node.js installation.'
 }
 
 $frontendDir = Join-Path $repoRoot 'frontend'
 if (-not (Test-Path $frontendDir)) {
-    throw "프런트엔드 디렉토리를 찾을 수 없습니다: $frontendDir"
+    throw "Frontend directory not found: $frontendDir"
 }
 
 $tfLocation = if ($TextFabricDataDir) {
     if (Test-Path $TextFabricDataDir) {
         (Resolve-Path $TextFabricDataDir).Path
     } else {
-        Write-Warn "지정한 Text-Fabric 경로가 존재하지 않습니다. 실행 중 생성될 수 있습니다: $TextFabricDataDir"
+        Write-Warn "Specified Text-Fabric directory does not exist. It will be used as provided: $TextFabricDataDir"
         $TextFabricDataDir
     }
 } elseif ($env:TF_DATA_LOCATION) {
@@ -153,10 +153,10 @@ $tfLocation = if ($TextFabricDataDir) {
 $env:TF_DATA_LOCATION = $tfLocation
 Write-Info "TF_DATA_LOCATION: $tfLocation"
 
-Ensure-PortFree -Port $BackendPort -Role '백엔드'
-Ensure-PortFree -Port $FrontendPort -Role '프런트엔드'
+Ensure-PortFree -Port $BackendPort -Role 'backend'
+Ensure-PortFree -Port $FrontendPort -Role 'frontend'
 
-Write-Step "백엔드 (uvicorn) 시작: 포트 $BackendPort"
+Write-Step "Starting backend (uvicorn) on port $BackendPort"
 $backendArgs = @('-m', 'uvicorn', 'backend.app:app', '--host', '0.0.0.0', '--port', $BackendPort, '--log-level', 'info', '--app-dir', $repoRoot)
 if ($BackendReload) {
     $backendArgs += '--reload'
@@ -166,38 +166,38 @@ Start-Sleep -Seconds 2
 if ($backendProc.HasExited) {
     $exitCode = $backendProc.ExitCode
     $backendOutput = Get-Content $backendLog -Tail 50
-    throw "백엔드 프로세스가 즉시 종료되었습니다 (코드 $exitCode). 로그:\n$backendOutput"
+    throw "Backend process exited immediately (code $exitCode). Recent log:\n$backendOutput"
 }
-Write-Info "백엔드 PID: $($backendProc.Id)"
+Write-Info "Backend PID: $($backendProc.Id)"
 
-Write-Step "프런트엔드 (Vite) 시작: 포트 $FrontendPort"
+Write-Step "Starting frontend (Vite) on port $FrontendPort"
 $frontendArgs = @('--prefix', $frontendDir, 'run', 'dev', '--', '--host', '0.0.0.0', '--port', $FrontendPort, '--strictPort')
 $frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $repoRoot -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendLog -PassThru
 Start-Sleep -Seconds 2
 if ($frontendProc.HasExited) {
     $exitCode = $frontendProc.ExitCode
     $frontendOutput = Get-Content $frontendLog -Tail 50
-    throw "프런트엔드 프로세스가 즉시 종료되었습니다 (코드 $exitCode). 로그:\n$frontendOutput"
+    throw "Frontend process exited immediately (code $exitCode). Recent log:\n$frontendOutput"
 }
-Write-Info "프런트엔드 PID: $($frontendProc.Id)"
+Write-Info "Frontend PID: $($frontendProc.Id)"
 
 if ($OpenBrowser) {
-    Write-Info "브라우저를 자동으로 엽니다: http://localhost:$FrontendPort"
+    Write-Info "Opening browser: http://localhost:$FrontendPort"
     Start-Process "http://localhost:$FrontendPort"
 }
 
-Write-Info "실시간 로그: `Get-Content -Wait '$backendLog'`, `Get-Content -Wait '$frontendLog'`"
-Write-Info '종료하려면 Ctrl+C 또는 PowerShell 창을 닫으세요.'
+Write-Info "Tail logs with: Get-Content -Wait '$backendLog' or '$frontendLog'"
+Write-Info 'Close this window or press Ctrl+C to stop both services.'
 
 try {
     while ($true) {
         Start-Sleep -Seconds 1
         if ($backendProc.HasExited) {
-            Write-Warn '백엔드 프로세스가 종료되었습니다. 프런트엔드도 정리합니다.'
+            Write-Warn 'Backend has stopped. Terminating frontend.'
             break
         }
         if ($frontendProc.HasExited) {
-            Write-Warn '프런트엔드 프로세스가 종료되었습니다. 백엔드도 정리합니다.'
+            Write-Warn 'Frontend has stopped. Terminating backend.'
             break
         }
     }
@@ -205,14 +205,14 @@ try {
 finally {
     foreach ($proc in @($frontendProc, $backendProc)) {
         if ($proc -and -not $proc.HasExited) {
-            Write-Info "프로세스 종료 중: PID $($proc.Id)"
+            Write-Info "Stopping process PID $($proc.Id)"
             try {
                 Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             } catch {
-                Write-Warn "프로세스 종료 실패: PID $($proc.Id)"
+                Write-Warn "Failed to stop process PID $($proc.Id)"
             }
         }
     }
-    Write-Info "백엔드 로그: $backendLog"
-    Write-Info "프런트엔드 로그: $frontendLog"
+    Write-Info "Backend log: $backendLog"
+    Write-Info "Frontend log: $frontendLog"
 }
