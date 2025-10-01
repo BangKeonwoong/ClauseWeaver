@@ -114,6 +114,27 @@ try {
         }
     }
 
+    function Invoke-NpmCommand {
+        param(
+            [string[]]$Arguments,
+            [string]$WorkingDirectory
+        )
+        if ($WorkingDirectory) {
+            Push-Location -Path $WorkingDirectory
+        }
+        try {
+            & $npmPath @Arguments
+            if ($LASTEXITCODE -ne 0) {
+                throw ("npm command failed with exit code {0}" -f $LASTEXITCODE)
+            }
+        }
+        finally {
+            if ($WorkingDirectory) {
+                Pop-Location
+            }
+        }
+    }
+
     Write-Step 'Prepare Python virtual environment'
     $venvDir = Join-Path $repoRoot '.venv'
     $venvPython = Join-Path $venvDir 'Scripts\python.exe'
@@ -173,7 +194,7 @@ try {
         Remove-Item -Recurse -Force $nodeModulesDir
     }
     Write-Info 'Running npm install.'
-    & $npmPath --prefix $frontendDir install
+    Invoke-NpmCommand -Arguments @('install') -WorkingDirectory $frontendDir
 
     Write-Info 'Setup complete.'
     Write-Info 'Activate the virtual environment with: & .venv\Scripts\Activate.ps1'

@@ -178,8 +178,8 @@ if ($backendProc.HasExited) {
 Write-Info ("Backend PID: {0}" -f $backendProc.Id)
 
 Write-Step ("Starting frontend (Vite) on port {0}" -f $FrontendPort)
-$frontendArgs = @('--prefix', $frontendDir, 'run', 'dev', '--', '--host', '0.0.0.0', '--port', $FrontendPort, '--strictPort')
-$frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $repoRoot -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendLog -PassThru
+$frontendArgs = @('run', 'dev', '--', '--host', '0.0.0.0', '--port', $FrontendPort, '--strictPort')
+$frontendProc = Start-Process -FilePath $npmPath -ArgumentList $frontendArgs -WorkingDirectory $frontendDir -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendLog -PassThru
 Start-Sleep -Seconds 2
 if ($frontendProc.HasExited) {
     $exitCode = $frontendProc.ExitCode
