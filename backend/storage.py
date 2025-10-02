@@ -70,6 +70,9 @@ class MotherStorage:
                     break
 
         feature_spec = " ".join(list(features) + available_optionals)
+        print(f"[TF] Module path: {module_path}")
+        print(f"[TF] Optional feature files found: {available_optionals}")
+        print(f"[TF] Loading features: {feature_spec}")
         api = self._fabric.load(feature_spec, silent="auto")
 
         if not api:
